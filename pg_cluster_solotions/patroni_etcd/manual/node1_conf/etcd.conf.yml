@@ -1,0 +1,23 @@
+# REF: https://github.com/etcd-io/etcd/blob/release-3.4/etcd.conf.yml.sample
+# REF: https://etcd.io/docs/v3.4/op-guide/configuration/
+
+name: "node1"
+data-dir: "/var/lib/etcd/node"
+
+snapshot-count: 1000
+heartbeat-interval: 1000  # in ms
+election-timeout: 5000  # in ms, at least 5x than heartbeat
+
+listen-peer-urls: "http://0.0.0.0:2380"  # List of comma separated URLs to listen on for peer traffic.
+listen-client-urls: "http://0.0.0.0:2379"  # List of comma separated URLs to listen on for client traffic.
+advertise-client-urls: "http://10.0.1.11:2379"  # Clients will use this to connect to node1
+
+initial-cluster-state: "new"  # new|existing, node1 should be the one to init cluster, and node2 will join
+initial-cluster-token: "etcd-cluster-1"  # ID of the cluster
+initial-advertise-peer-urls: "http://10.0.1.11:2380"  # Other nodes will use this to reach this node
+initial-cluster: "node1=http://10.0.1.11:2380"  # Node discovery, the first node should only contain itself
+
+strict-reconfig-check: false  # Reject reconfiguration requests that would cause quorum loss.
+enable-v2: true  # Accept etcd V2 client requests
+
+debug: true
