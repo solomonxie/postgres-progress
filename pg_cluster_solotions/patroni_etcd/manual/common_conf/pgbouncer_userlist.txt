@@ -1,0 +1,8 @@
+# All users MUST be defined here
+# otherwise will throw error `FATAL: password authentication failed`
+
+# How to get the md5 value:
+# sql> SELECT 'md5' || md5('your_password' || 'your_username');
+# or, $ echo -n "{your_password}{your_username}" | md5sum  # need to add prefix "md5"
+
+"postgres" "md5xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
