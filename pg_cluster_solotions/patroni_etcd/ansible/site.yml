@@ -1,0 +1,43 @@
+---
+# Full cluster build, in the same order as ../manual/ and ../README.md's
+# "Setup order": base OS, etcd, PostgreSQL, Patroni, pgbouncer, then
+# HAProxy and pgAdmin on the proxy node.
+
+- name: Base OS setup (all nodes)
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: etcd (all nodes, one at a time so node1 bootstraps before others join)
+  hosts: etcd_nodes
+  become: true
+  serial: 1
+  roles:
+    - etcd
+
+- name: PostgreSQL packages (pg_nodes)
+  hosts: pg_nodes
+  become: true
+  roles:
+    - postgresql
+
+- name: Patroni (pg_nodes, one at a time so node1 initializes the cluster first)
+  hosts: pg_nodes
+  become: true
+  serial: 1
+  roles:
+    - patroni
+
+- name: pgbouncer (pg_nodes)
+  hosts: pg_nodes
+  become: true
+  roles:
+    - pgbouncer
+
+- name: HAProxy and pgAdmin (proxy_nodes)
+  hosts: proxy_nodes
+  become: true
+  roles:
+    - haproxy
+    - pgadmin
