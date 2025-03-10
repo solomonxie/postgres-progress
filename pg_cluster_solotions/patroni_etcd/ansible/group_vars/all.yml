@@ -1,0 +1,8 @@
+venv_path: /opt/venv
+
+pg_version: "17"
+pg_data_device: /dev/nvme1n1
+pg_data_mount: /mnt/pg_data
+
+pgadmin_email: pgadmin@example.com
+pgadmin_password: changeme
