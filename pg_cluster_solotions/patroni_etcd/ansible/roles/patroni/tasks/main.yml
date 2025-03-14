@@ -1,0 +1,70 @@
+---
+# Mirrors ../../manual/setup_patroni.sh: install Patroni into the
+# venv, deploy its config and systemd unit, and start it. Runs with
+# serial: 1 in site.yml so node1 initializes the cluster before node2
+# starts and joins it, same order as the manual walkthrough.
+
+- name: Install Patroni and its etcd/psycopg2 dependencies into the venv
+  pip:
+    virtualenv: "{{ venv_path }}"
+    name:
+      - patroni[etcd]
+      - psycopg2-binary
+
+- name: Deploy the Patroni systemd unit
+  copy:
+    src: "{{ playbook_dir }}/../manual/common_conf/patroni.service"
+    dest: /etc/systemd/system/patroni.service
+
+- name: Deploy this node's patroni.yml
+  copy:
+    src: "{{ playbook_dir }}/../manual/{{ inventory_hostname }}_conf/patroni.yml"
+    dest: /etc/patroni.yml
+
+- name: Deploy the Patroni callback script
+  copy:
+    src: "{{ playbook_dir }}/../manual/common_conf/patroni_callback.py"
+    dest: /etc/patroni_callback.py
+
+- name: Deploy the Patroni environment file
+  copy:
+    src: "{{ playbook_dir }}/../manual/common_conf/patroni.env"
+    dest: /etc/patroni.env
+    mode: '0644'
+
+- name: Ensure the postgresql config directory exists (Patroni manages it dynamically)
+  file:
+    path: /etc/postgresql
+    state: directory
+    owner: postgres
+    group: postgres
+
+- name: Deploy pgpass for Patroni
+  copy:
+    src: "{{ playbook_dir }}/../manual/common_conf/pgpass.conf"
+    dest: /etc/postgresql/pgpass0
+    owner: postgres
+    group: postgres
+    mode: '0600'
+
+- name: Validate the Patroni config
+  command: "{{ venv_path }}/bin/patroni --validate-config /etc/patroni.yml"
+  changed_when: false
+
+- name: Enable and start Patroni
+  systemd:
+    name: patroni
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for Patroni's REST API to respond
+  uri:
+    url: "http://localhost:8008"
+    status_code:
+      - 200
+      - 503
+  register: patroni_api
+  until: patroni_api.status is defined
+  retries: 15
+  delay: 4
