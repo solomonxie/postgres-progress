@@ -1,0 +1,64 @@
+---
+# Mirrors ../../manual/setup_ec2.sh: base packages, a Python venv,
+# and mounting the data disk that PostgreSQL will live on.
+
+- name: Update apt cache and upgrade packages
+  apt:
+    update_cache: true
+    upgrade: safe
+
+- name: Install base packages
+  apt:
+    state: present
+    name:
+      - curl
+      - wget
+      - gnupg2
+      - lsb-release
+      - software-properties-common
+      - python3-pip
+      - python3-venv
+      - python3-virtualenv
+
+- name: Create the venv directory
+  file:
+    path: "{{ venv_path }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Create the Python virtualenv
+  command: "virtualenv -p python3 {{ venv_path }}"
+  args:
+    creates: "{{ venv_path }}/bin/activate"
+
+- name: Put the venv on PATH for interactive shells
+  lineinfile:
+    path: "/home/{{ ansible_user }}/.bashrc"
+    line: 'export PATH="{{ venv_path }}/bin/:$PATH"'
+    create: true
+
+- name: Check whether the data volume is already formatted
+  command: "blkid {{ pg_data_device }}"
+  register: pg_data_blkid
+  changed_when: false
+  failed_when: false
+
+- name: Format the data volume as ext4
+  filesystem:
+    fstype: ext4
+    dev: "{{ pg_data_device }}"
+  when: pg_data_blkid.rc != 0
+
+- name: Create the data mount point
+  file:
+    path: "{{ pg_data_mount }}"
+    state: directory
+
+- name: Mount the data volume and add it to fstab
+  mount:
+    path: "{{ pg_data_mount }}"
+    src: "{{ pg_data_device }}"
+    fstype: ext4
+    opts: defaults,auto,noatime,nodiratime,noexec,relatime
+    state: mounted

@@ -1,0 +1,79 @@
+---
+# Mirrors ../../manual/setup_etcd.sh: install etcd, deploy this
+# node's config from ../../manual/, then bootstrap node1 first and
+# have every other node register as a member before it starts (etcd
+# needs the member registered before that member's own etcd can join,
+# same order the manual walkthrough follows).
+
+- name: Install etcd
+  apt:
+    name: etcd
+    state: present
+    update_cache: true
+
+- name: Deploy the etcd systemd unit
+  copy:
+    src: "{{ playbook_dir }}/../manual/common_conf/etcd.service"
+    dest: /etc/systemd/system/etcd2.service
+
+- name: Deploy this node's etcd config
+  copy:
+    src: "{{ playbook_dir }}/../manual/{{ inventory_hostname }}_conf/etcd.conf.yml"
+    dest: /etc/etcd.conf.yml
+
+- name: Move aside the default etcd env file to avoid conflicting settings
+  command: mv /etc/default/etcd /tmp/backup_etcd.env
+  args:
+    removes: /etc/default/etcd
+
+- name: Start etcd on the bootstrap node (first host in etcd_nodes)
+  systemd:
+    name: etcd
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: inventory_hostname == groups['etcd_nodes'][0]
+
+- name: Wait for the bootstrap node's etcd to report healthy
+  command: etcdctl endpoint health
+  environment:
+    ETCDCTL_API: "3"
+  delegate_to: "{{ groups['etcd_nodes'][0] }}"
+  register: bootstrap_health
+  until: bootstrap_health.rc == 0
+  retries: 10
+  delay: 3
+  changed_when: false
+  when: inventory_hostname != groups['etcd_nodes'][0]
+
+- name: Register this node as an etcd member, from the bootstrap node
+  command: >
+    etcdctl member add {{ inventory_hostname }}
+    --peer-urls=http://{{ ansible_host }}:2380
+  environment:
+    ETCDCTL_API: "3"
+  delegate_to: "{{ groups['etcd_nodes'][0] }}"
+  register: etcd_member_add
+  failed_when: >
+    etcd_member_add.rc != 0 and
+    'Peer URLs already exists' not in etcd_member_add.stderr
+  changed_when: etcd_member_add.rc == 0
+  when: inventory_hostname != groups['etcd_nodes'][0]
+
+- name: Start etcd on this joining node
+  systemd:
+    name: etcd
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: inventory_hostname != groups['etcd_nodes'][0]
+
+- name: Wait for this node's etcd to report healthy
+  command: etcdctl endpoint health
+  environment:
+    ETCDCTL_API: "3"
+  register: etcd_health
+  until: etcd_health.rc == 0
+  retries: 10
+  delay: 3
+  changed_when: false
