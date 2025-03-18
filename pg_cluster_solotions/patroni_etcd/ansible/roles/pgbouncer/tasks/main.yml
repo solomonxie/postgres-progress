@@ -1,0 +1,37 @@
+---
+# Mirrors ../../manual/setup_pgbouncer.sh.
+
+- name: Install pgbouncer
+  apt:
+    name: pgbouncer
+    state: present
+    update_cache: true
+
+- name: Deploy pgbouncer.ini
+  copy:
+    src: "{{ playbook_dir }}/../manual/common_conf/pgbouncer.ini"
+    dest: /etc/pgbouncer/pgbouncer.ini
+
+- name: Deploy the pgbouncer userlist
+  copy:
+    src: "{{ playbook_dir }}/../manual/common_conf/pgbouncer_userlist.txt"
+    dest: /etc/pgbouncer/userlist.txt
+
+- name: Deploy the pgbouncer systemd unit
+  copy:
+    src: "{{ playbook_dir }}/../manual/common_conf/pgbouncer.service"
+    dest: /lib/systemd/system/pgbouncer.service
+
+- name: Create the pgbouncer log directory
+  file:
+    path: /var/log/pgbouncer
+    state: directory
+    owner: postgres
+    group: postgres
+
+- name: Enable and start pgbouncer
+  systemd:
+    name: pgbouncer
+    enabled: true
+    state: started
+    daemon_reload: true
