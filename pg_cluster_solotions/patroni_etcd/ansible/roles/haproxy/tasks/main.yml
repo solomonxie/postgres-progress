@@ -1,0 +1,20 @@
+---
+# Mirrors ../../manual/node3_conf/setup_haproxy.sh.
+
+- name: Install HAProxy
+  apt:
+    name: haproxy
+    state: present
+    update_cache: true
+
+- name: Deploy haproxy.cfg
+  copy:
+    src: "{{ playbook_dir }}/../manual/{{ inventory_hostname }}_conf/haproxy.cfg"
+    dest: /etc/haproxy/haproxy.cfg
+
+- name: Enable and restart HAProxy
+  systemd:
+    name: haproxy
+    enabled: true
+    state: restarted
+    daemon_reload: true
