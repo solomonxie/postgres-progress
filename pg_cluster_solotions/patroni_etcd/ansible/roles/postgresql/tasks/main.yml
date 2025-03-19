@@ -1,0 +1,52 @@
+---
+# Mirrors ../../manual/setup_pg.sh: install PostgreSQL 17, then
+# disable and remove the native systemd service entirely, because
+# Patroni will launch and manage the postgres process itself.
+
+- name: Add the PostgreSQL apt signing key
+  apt_key:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    state: present
+
+- name: Add the PostgreSQL apt repository
+  apt_repository:
+    repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    filename: pgdg
+    state: present
+
+- name: Install PostgreSQL {{ pg_version }}
+  apt:
+    update_cache: true
+    state: present
+    name:
+      - "postgresql-{{ pg_version }}"
+      - "postgresql-client-{{ pg_version }}"
+      - "postgresql-server-dev-{{ pg_version }}"
+
+- name: Stop and disable the native postgresql service
+  systemd:
+    name: postgresql
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Remove the native postgresql unit files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/init.d/postgresql
+    - /lib/systemd/system/postgresql.service
+    - /lib/systemd/system/postgresql@.service
+
+- name: Reload systemd after removing the native units
+  systemd:
+    daemon_reload: true
+
+- name: Own the PostgreSQL data mount
+  file:
+    path: "{{ pg_data_mount }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0700'
