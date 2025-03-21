@@ -1,0 +1,57 @@
+---
+# Mirrors ../../manual/node3_conf/setup_pgadmin.sh.
+
+- name: Install pgAdmin into the venv
+  pip:
+    virtualenv: "{{ venv_path }}"
+    name: pgadmin4
+
+- name: Find the installed pgAdmin package path
+  find:
+    paths: "{{ venv_path }}/lib"
+    patterns: "config.py"
+    recurse: true
+    depth: 5
+  register: pgadmin_config_search
+
+- name: Deploy the pgAdmin systemd unit
+  copy:
+    src: "{{ playbook_dir }}/../manual/{{ inventory_hostname }}_conf/pgadmin.service"
+    dest: /etc/systemd/system/pgadmin.service
+
+- name: Deploy the pgAdmin config over the default one
+  copy:
+    src: "{{ playbook_dir }}/../manual/{{ inventory_hostname }}_conf/pgadmin_conf.py"
+    dest: "{{ (pgadmin_config_search.files | selectattr('path', 'search', 'pgadmin4/config.py') | map(attribute='path') | list | first) }}"
+  when: pgadmin_config_search.matched > 0
+
+- name: Create pgAdmin data and log directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  loop:
+    - /var/lib/pgadmin
+    - /var/log/pgadmin
+
+- name: Enable and start pgAdmin
+  systemd:
+    name: pgadmin
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Check whether the pgAdmin login user already exists
+  become: true
+  become_user: postgres
+  command: "{{ venv_path }}/bin/pgadmin4-cli get-users"
+  register: pgadmin_users
+  changed_when: false
+  failed_when: false
+
+- name: Create the pgAdmin login user
+  become: true
+  become_user: postgres
+  command: "{{ venv_path }}/bin/pgadmin4-cli add-user '{{ pgadmin_email }}' '{{ pgadmin_password }}'"
+  when: pgadmin_email not in pgadmin_users.stdout
