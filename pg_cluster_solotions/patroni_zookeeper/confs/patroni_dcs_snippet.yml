@@ -1,0 +1,14 @@
+# This replaces the `etcd:` block in patroni.yml. Everything else in
+# ../patroni_etcd/manual/node1_conf/patroni.yml (scope, name, restapi,
+# postgresql, bootstrap) is unchanged.
+#
+# etcd version, being replaced:
+#
+# etcd:
+#   host: 127.0.0.1:2379
+
+zookeeper:
+  hosts:
+    - node1.pg.internal:2181
+    - node2.pg.internal:2181
+    - node3.pg.internal:2181
