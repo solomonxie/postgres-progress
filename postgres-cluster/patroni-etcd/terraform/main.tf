@@ -23,7 +23,7 @@ resource "aws_instance" "node" {
   for_each = toset(local.nodes)
 
   ami                    = data.aws_ami.ubuntu.id
-  instance_type          = var.instance_type
+  instance_type          = t3.medium
   key_name               = var.key_pair_name
   subnet_id              = aws_subnet.cluster.id
   vpc_security_group_ids = [aws_security_group.cluster.id]
@@ -39,7 +39,7 @@ resource "aws_ebs_volume" "pg_data" {
   for_each = toset(local.nodes)
 
   availability_zone = aws_instance.node[each.key].availability_zone
-  size              = var.data_volume_size_gb
+  size              = 8
   type              = "gp3"
 
   tags = {
