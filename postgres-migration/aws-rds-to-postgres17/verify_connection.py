@@ -8,7 +8,7 @@ and reports the expected version, useful right after cutover.
 import psycopg2
 
 conf = {
-    "host": "pg-cluster.internal.example.com",
+    "host": "pg-cluster.example.com",
     "port": "6432",
     "user": "postgres",
     "password": "changeme",

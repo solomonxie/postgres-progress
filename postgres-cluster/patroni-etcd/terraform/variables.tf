@@ -10,18 +10,6 @@ variable "vpc_cidr" {
   default     = "10.0.1.0/24"
 }
 
-variable "instance_type" {
-  description = "EC2 instance type for each cluster node"
-  type        = string
-  default     = "t3.medium"
-}
-
-variable "data_volume_size_gb" {
-  description = "Size (GB) of the EBS volume mounted for PostgreSQL data"
-  type        = number
-  default     = 8
-}
-
 variable "key_pair_name" {
   description = "Name of an existing EC2 key pair for SSH access"
   type        = string
