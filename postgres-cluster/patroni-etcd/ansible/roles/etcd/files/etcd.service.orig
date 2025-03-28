@@ -1,0 +1,29 @@
+# Untouched default shipped at /lib/systemd/system/etcd.service by the
+# Ubuntu 22.04 (jammy) etcd-server 3.3.25 apt package. Reference only,
+# not deployed - we deploy etcd.service to a different unit name
+# (etcd2.service, see role tasks) instead of overwriting this one, so
+# diff against this to see what our unit changes vs. the package's.
+[Unit]
+Description=etcd - highly-available key value store
+Documentation=https://etcd.io/docs
+Documentation=man:etcd
+After=network.target
+Wants=network-online.target
+
+[Service]
+Environment=DAEMON_ARGS=
+Environment=ETCD_NAME=%H
+Environment=ETCD_DATA_DIR=/var/lib/etcd/default
+EnvironmentFile=-/etc/default/%p
+Type=notify
+User=etcd
+PermissionsStartOnly=true
+#ExecStart=/bin/sh -c "GOMAXPROCS=$(nproc) /usr/bin/etcd $DAEMON_ARGS"
+ExecStart=/usr/bin/etcd $DAEMON_ARGS
+Restart=on-abnormal
+#RestartSec=10s
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+Alias=etcd2.service
