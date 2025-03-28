@@ -1,5 +1,6 @@
 ---
-# Mirrors ../../manual/node3_conf/setup_pgadmin.sh.
+# Mirrors ../../manual/node3_conf/setup_pgadmin.sh, adapted to this
+# role's own files instead of ../../manual/.
 
 - name: Install pgAdmin into the venv
   pip:
@@ -16,12 +17,12 @@
 
 - name: Deploy the pgAdmin systemd unit
   copy:
-    src: "{{ playbook_dir }}/../manual/{{ inventory_hostname }}_conf/pgadmin.service"
+    src: pgadmin.service
     dest: /etc/systemd/system/pgadmin.service
 
 - name: Deploy the pgAdmin config over the default one
   copy:
-    src: "{{ playbook_dir }}/../manual/{{ inventory_hostname }}_conf/pgadmin_conf.py"
+    src: pgadmin_conf.py
     dest: "{{ (pgadmin_config_search.files | selectattr('path', 'search', 'pgadmin4/config.py') | map(attribute='path') | list | first) }}"
   when: pgadmin_config_search.matched > 0
 

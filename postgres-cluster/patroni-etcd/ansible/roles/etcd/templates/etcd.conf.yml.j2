@@ -1,0 +1,36 @@
+# REF: https://github.com/etcd-io/etcd/blob/release-3.4/etcd.conf.yml.sample
+# REF: https://etcd.io/docs/v3.4/op-guide/configuration/
+{% set bootstrap_node = groups['etcd_nodes'][0] %}
+{% set is_bootstrap = inventory_hostname == bootstrap_node %}
+
+name: "{{ inventory_hostname }}"
+data-dir: "/var/lib/etcd/node"
+
+snapshot-count: 1000
+heartbeat-interval: {{ etcd_heartbeat_interval }}  # in ms
+election-timeout: {{ etcd_election_timeout }}  # in ms, at least 5x than heartbeat
+
+listen-peer-urls: "http://0.0.0.0:2380"  # List of comma separated URLs to listen on for peer traffic.
+listen-client-urls: "http://0.0.0.0:2379"  # List of comma separated URLs to listen on for client traffic.
+advertise-client-urls: "http://{{ ansible_host }}:2379"  # Clients will use this to connect to this node
+
+initial-cluster-state: "{{ 'new' if is_bootstrap else 'existing' }}"  # new|existing, the bootstrap node inits the cluster, the rest join it
+initial-cluster-token: "etcd-cluster-1"  # ID of the cluster
+initial-advertise-peer-urls: "http://{{ ansible_host }}:2380"  # Other nodes will use this to reach this node
+{% if is_bootstrap %}
+initial-cluster: "{{ inventory_hostname }}=http://{{ ansible_host }}:2380"  # Node discovery, the bootstrap node should only contain itself
+{% else %}
+{% set peers = [] %}
+{% for node in groups['etcd_nodes'] %}
+{% set _ = peers.append(node ~ '=http://' ~ hostvars[node].ansible_host ~ ':2380') %}
+{% endfor %}
+# This is critical when this node is joining the cluster,
+# it must include EVERY EXISTING NODE (must not include those not-yet-joined),
+# after the node joins the cluster this is no longer used (unless reset and removed from the cluster)
+initial-cluster: "{{ peers | join(',') }}"
+{% endif %}
+
+strict-reconfig-check: false  # Reject reconfiguration requests that would cause quorum loss.
+enable-v2: true  # Accept etcd V2 client requests
+
+debug: true

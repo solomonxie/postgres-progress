@@ -1,5 +1,6 @@
 ---
-# Mirrors ../../manual/setup_patroni.sh: install Patroni into the
+# Mirrors ../../manual/setup_patroni.sh, adapted to this role's own
+# files/templates instead of ../../manual/: install Patroni into the
 # venv, deploy its config and systemd unit, and start it. Runs with
 # serial: 1 in site.yml so node1 initializes the cluster before node2
 # starts and joins it, same order as the manual walkthrough.
@@ -13,22 +14,22 @@
 
 - name: Deploy the Patroni systemd unit
   copy:
-    src: "{{ playbook_dir }}/../manual/common_conf/patroni.service"
+    src: patroni.service
     dest: /etc/systemd/system/patroni.service
 
 - name: Deploy this node's patroni.yml
-  copy:
-    src: "{{ playbook_dir }}/../manual/{{ inventory_hostname }}_conf/patroni.yml"
+  template:
+    src: patroni.yml.j2
     dest: /etc/patroni.yml
 
 - name: Deploy the Patroni callback script
   copy:
-    src: "{{ playbook_dir }}/../manual/common_conf/patroni_callback.py"
+    src: patroni_callback.py
     dest: /etc/patroni_callback.py
 
 - name: Deploy the Patroni environment file
   copy:
-    src: "{{ playbook_dir }}/../manual/common_conf/patroni.env"
+    src: patroni.env
     dest: /etc/patroni.env
     mode: '0644'
 
@@ -41,7 +42,7 @@
 
 - name: Deploy pgpass for Patroni
   copy:
-    src: "{{ playbook_dir }}/../manual/common_conf/pgpass.conf"
+    src: pgpass.conf
     dest: /etc/postgresql/pgpass0
     owner: postgres
     group: postgres

@@ -1,0 +1,142 @@
+# REF(Important): https://patroni.readthedocs.io/en/latest/patroni_configuration.html
+# REF: https://patroni.readthedocs.io/en/latest/yaml_configuration.html
+# REF: https://patroni.readthedocs.io/en/latest/ENVIRONMENT.html#environment
+# Example: https://github.com/patroni/patroni/blob/master/postgres0.yml
+# Example: http://v0.pigsty.cc/en/docs/deploy/customize/patroni/
+# This is rendered once per pg_nodes host; the same shape is used for
+# every node (bootstrap is a no-op once the cluster already exists).
+
+scope: {{ patroni_scope }}  # Cluster-name, all nodes must have the same scope to be part of the same HA group.
+namespace: /pg-cluster/  # One namespace has multiple clusters. Etcd prefix is: `/pg-cluster/{{ patroni_scope }}/...`
+name: {{ inventory_hostname }}
+
+
+restapi:
+  listen: 0.0.0.0:8008  # Exposing REST API endpoint on this address
+  connect_address: {{ ansible_host }}:8008  # The address [other nodes] use to connect this instance.
+
+etcd:
+  host: 127.0.0.1:2379  # Initial discovery point
+
+# Logs saved to /var/log/syslog or /var/log/postgres/patroni.log
+log:
+  type: json
+  dir: /var/log/postgresql/
+  format:
+    - asctime: '@timestamp'
+    - levelname: level
+    - message
+  static_fields:
+    app: patroni
+
+# Patroni uses this section to manage each node in cluster
+# Need to disregard all native PG configs,
+# because Patroni will ignore systemd's postgresql.service,
+# and Patroni will directly launch pg-server process
+# But remember!-> When this section conflicts with DCS global settings, DCS wins.
+# Override order: postgresql.conf < patroni.yml < ENV < DCS < pg_ctl arguments
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: {{ ansible_host }}:5432  # Other patroni nodes will use this to connect this node
+  data_dir: /mnt/pg_data/data  # !Make sure this matches <data_directory> in postgresql.conf
+  config_dir: /etc/postgresql  # Patroni will dynamically manage configs, make sure it has rw permission
+  bin_dir: /usr/lib/postgresql/{{ pg_version }}/bin/
+  # Some postgresql.parameters require consistent among nodes, some do not
+  # For those not requiring consistent values, can be deined here,
+  # otherwise use `edit-config` to change in DCS
+  parameters:
+    application_name: {{ patroni_scope }}_{{ inventory_hostname }}
+    max_connections: 256
+    password_encryption: md5
+    wal_keep_size: 10GB
+    # pg_rewind needs this on
+    wal_log_hints: true
+    # <Log> REF: https://www.postgresql.org/docs/current/runtime-config-logging.html
+    logging_collector: true
+    log_connections: true
+    log_disconnections: true
+    log_min_duration_sample: 2
+    log_statement_sample_rate: 0.5
+    log_directory: /var/log/postgresql
+    log_filename: postgresql.log
+    log_duration: false  # will print a log line just show duration itself
+    log_statement: mod  # none|ddl|mod|all  < log this EXCEPT duration >= log_min_duration_statement
+    log_min_duration_statement: 10  # ms
+    log_truncate_on_rotation: off
+    log_rotation_age: 1d
+    log_line_prefix: '%m [%p] %a '
+  # -- Rewind settings ---
+  # `use_pg_rewind` is important, after failover, this copies missing new WALs (and remove conflicts) from the new primary
+  # Try to use pg_rewind on the former leader when it joins cluster as a replica.
+  # Cluster must be initialized with [--data-checksums + wal_log_hints], or pg_rewind will not work.
+  use_pg_rewind: true
+  # This option will remove `/mnt/pg_data/data` on `pg_rewind` failure and recreate the replica.
+  # Otherwise it will try to follow the new leader.
+  remove_data_directory_on_rewind_failure: on
+  # This option will remove `/mnt/pg_data/data` on `pg_rewind`
+  # when `pg_rewind` fails due `timelines(TL)` of replica fals behind primary which hangs and blocks replica streaming
+  remove_data_directory_on_diverged_timelines: on
+  # ---- Callback settings ---
+  callbacks:
+    on_start: python /etc/patroni_callback.py start
+    on_stop: python /etc/patroni_callback.py stop
+    on_reload: python /etc/patroni_callback.py reload
+    on_restart: python /etc/patroni_callback.py restart
+    on_role_change: python /etc/patroni_callback.py role_change
+  pre_promote: python /etc/patroni_callback.py pre_promote
+  before_stop: python /etc/patroni_callback.py before_stop
+  # ---- Auth settings ---
+  pgpass: /etc/postgresql/pgpass0  # Must be writable by Patroni which creates this file before executing pg_basebackup
+  # This section is a placeholder, will be replaced by `patroni.env`
+  # Patroni uses this to connect current pg server and manage configs
+  authentication:
+    replication:
+      username: replicator
+      password: "changeme"
+    rewind:
+      username: rewind_user
+      password: "changeme"
+    superuser:
+      username: postgres
+      password: "changeme"
+
+
+# The section works only when the cluster is not yet initialized.
+# If the cluster is already initialized, all changes in the `bootstrap` section are ignored!
+# This section will be written into Etcd:/<namespace>/<scope>/config after initializing new cluster
+# and all other cluster members will use it as a `global configuration`.
+# ======= WARNING! =======
+# If you want to change any of the parameters that were set up via `bootstrap.dcs` section,
+# please use `patronictl -c /etc/patroni.yml edit-config`!
+bootstrap:
+  dcs:  # Distributed Configuration System (DCS)
+    ttl: 30  # How many seconds a leader is considered valid before being declared dead
+    loop_wait: 10  # How often (in seconds) Patroni checks cluster status
+    retry_timeout: 10  # How long Patroni waits before retrying an operation.
+    maximum_lag_on_failover: 1048576  # The max replication lag allowed for a standby to take over as the new leader
+    postgresql:
+      parameters:
+        max_connections: 256
+        password_encryption: md5
+        wal_keep_size: 10GB
+        wal_log_hints: true  # pg_rewind needs this on
+      pg_hba:  # This will be copied to all nodes' pg_hba.conf, run `edit-config` to change this globally and manually
+        - local all postgres md5
+        - local all all peer
+        - host all all 0.0.0.0/0 md5  # Don't limit access from pg_hba but restrict in AWS security group
+        - host replication replicator 0.0.0.0/0 md5  # Allow any follower or 127.0.0.1 to replicate
+        - host replication rewind_user 0.0.0.0/0 md5
+  users:  # Create initial users
+    replicator:
+      options:  # Equal to >> ALTER ROLE replicator WITH REPLICATION LOGIN;
+        - replication
+    rewind_user:
+      options:  # Equal to >> ALTER ROLE replicator WITH SUPERUSER LOGIN;
+        - superuser
+  # When a node fails,
+  # if `pg_rewind` is defined, Patroni will use pg_rewind first,
+  # then only use `initdb` if ^ fails, and will wipe/cleanup the its data,
+  # reinitializes it by syncing from the latest primary node using `pg_basebackup`.
+  initdb:
+    - encoding: UTF8
+    - data-checksums  # Required for pg_rewind
