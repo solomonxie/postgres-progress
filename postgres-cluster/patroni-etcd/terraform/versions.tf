@@ -1,3 +1,6 @@
+# Depends on: variables.tf (var.aws_region)
+# Feeds: every other .tf file (provider "aws" they all implicitly use)
+
 terraform {
   required_version = ">= 1.5"
 
