@@ -1,9 +1,10 @@
 ---
-# Mirrors ../../manual/setup_etcd.sh: install etcd, deploy this
-# node's config from ../../manual/, then bootstrap node1 first and
-# have every other node register as a member before it starts (etcd
-# needs the member registered before that member's own etcd can join,
-# same order the manual walkthrough follows).
+# Mirrors ../../manual/setup_etcd.sh, adapted to this role's own
+# files/templates instead of ../../manual/: install etcd, deploy this
+# node's config, then bootstrap node1 first and have every other node
+# register as a member before it starts (etcd needs the member
+# registered before that member's own etcd can join, same order the
+# manual walkthrough follows).
 
 - name: Install etcd
   apt:
@@ -13,12 +14,12 @@
 
 - name: Deploy the etcd systemd unit
   copy:
-    src: "{{ playbook_dir }}/../manual/common_conf/etcd.service"
+    src: etcd.service
     dest: /etc/systemd/system/etcd2.service
 
 - name: Deploy this node's etcd config
-  copy:
-    src: "{{ playbook_dir }}/../manual/{{ inventory_hostname }}_conf/etcd.conf.yml"
+  template:
+    src: etcd.conf.yml.j2
     dest: /etc/etcd.conf.yml
 
 - name: Move aside the default etcd env file to avoid conflicting settings

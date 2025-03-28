@@ -1,6 +1,10 @@
 venv_path: /opt/venv
 
+etcd_heartbeat_interval: 100
+etcd_election_timeout: 1000
+
 pg_version: "17"
+patroni_scope: cluster1
 pg_data_device: /dev/nvme1n1
 pg_data_mount: /mnt/pg_data
 

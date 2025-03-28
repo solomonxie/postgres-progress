@@ -1,5 +1,6 @@
 ---
-# Mirrors ../../manual/node3_conf/setup_haproxy.sh.
+# Mirrors ../../manual/node3_conf/setup_haproxy.sh, adapted to this
+# role's own template instead of ../../manual/.
 
 - name: Install HAProxy
   apt:
@@ -8,8 +9,8 @@
     update_cache: true
 
 - name: Deploy haproxy.cfg
-  copy:
-    src: "{{ playbook_dir }}/../manual/{{ inventory_hostname }}_conf/haproxy.cfg"
+  template:
+    src: haproxy.cfg.j2
     dest: /etc/haproxy/haproxy.cfg
 
 - name: Enable and restart HAProxy

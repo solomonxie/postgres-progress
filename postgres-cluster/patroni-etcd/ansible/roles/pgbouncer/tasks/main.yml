@@ -1,5 +1,6 @@
 ---
-# Mirrors ../../manual/setup_pgbouncer.sh.
+# Mirrors ../../manual/setup_pgbouncer.sh, adapted to this role's own
+# files instead of ../../manual/.
 
 - name: Install pgbouncer
   apt:
@@ -9,17 +10,17 @@
 
 - name: Deploy pgbouncer.ini
   copy:
-    src: "{{ playbook_dir }}/../manual/common_conf/pgbouncer.ini"
+    src: pgbouncer.ini
     dest: /etc/pgbouncer/pgbouncer.ini
 
 - name: Deploy the pgbouncer userlist
   copy:
-    src: "{{ playbook_dir }}/../manual/common_conf/pgbouncer_userlist.txt"
+    src: pgbouncer_userlist.txt
     dest: /etc/pgbouncer/userlist.txt
 
 - name: Deploy the pgbouncer systemd unit
   copy:
-    src: "{{ playbook_dir }}/../manual/common_conf/pgbouncer.service"
+    src: pgbouncer.service
     dest: /lib/systemd/system/pgbouncer.service
 
 - name: Create the pgbouncer log directory
