@@ -120,11 +120,31 @@ bootstrap:
         password_encryption: md5
         wal_keep_size: 10GB
         wal_log_hints: true  # pg_rewind needs this on
+        # -- memory (sized for a much bigger box than the terraform/ t3.medium PoC instance - resize before using this on t3.medium) --
+        shared_buffers: 32GB
+        work_mem: 64MB
+        effective_cache_size: 90GB
+        maintenance_work_mem: 2GB
+        statement_timeout: 0
+        # -- replication --
+        wal_level: logical  # controls how much is written to WAL: minimal|replica|logical
+        hot_standby: on  # must be on so replicas can serve reads; was "off" in the old common_conf/postgresql.conf, which would have broken standbys
+        max_wal_senders: 5
+        max_replication_slots: 5
+        synchronous_commit: off  # (slow) make sure it's not sync replica mode otherwise every single DDL will be locked
+        synchronous_standby_names: '*'  # no-op while synchronous_commit is off; kept so a session can opt into sync commit
+        # -- extensions --
+        shared_preload_libraries: pg_stat_statements
+        compute_query_id: on
+        pg_stat_statements.track: all
+        pg_stat_statements.max: 10000
+        pg_stat_statements.save: on
       pg_hba:  # This will be copied to all nodes' pg_hba.conf, run `edit-config` to change this globally and manually
-        - local all postgres md5
+        - local all postgres peer
         - local all all peer
         - host all all 0.0.0.0/0 md5  # Don't limit access from pg_hba but restrict in AWS security group
-        - host replication replicator 0.0.0.0/0 md5  # Allow any follower or 127.0.0.1 to replicate
+        - local replication all peer  # pg_rewind and local basebackups connect over the unix socket
+        - host replication replicator 0.0.0.0/0 md5  # Allow any follower to replicate
         - host replication rewind_user 0.0.0.0/0 md5
   users:  # Create initial users
     replicator:
