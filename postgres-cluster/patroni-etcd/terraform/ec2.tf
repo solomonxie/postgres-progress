@@ -1,3 +1,11 @@
+# Depends on: variables.tf (var.key_pair_name, var.cluster_name),
+#             network.tf (aws_subnet.cluster, aws_security_group.cluster)
+# Feeds: outputs.tf (aws_instance.node)
+#
+# data.aws_ami.ubuntu ─┐
+# aws_subnet.cluster ──┼─→ aws_instance.node ─→ aws_ebs_volume.pg_data ─→ aws_volume_attachment.pg_data
+# aws_security_group ──┘
+
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
@@ -23,7 +31,7 @@ resource "aws_instance" "node" {
   for_each = toset(local.nodes)
 
   ami                    = data.aws_ami.ubuntu.id
-  instance_type          = t3.medium
+  instance_type          = "t3.medium"
   key_name               = var.key_pair_name
   subnet_id              = aws_subnet.cluster.id
   vpc_security_group_ids = [aws_security_group.cluster.id]

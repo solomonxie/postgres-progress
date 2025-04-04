@@ -1,3 +1,11 @@
+# Depends on: variables.tf (var.vpc_cidr, var.cluster_name, var.allowed_ssh_cidr)
+# Feeds: ec2.tf (aws_subnet.cluster, aws_security_group.cluster)
+#
+# aws_vpc.cluster ─→ aws_internet_gateway.cluster ─→ aws_route_table.cluster ─→ aws_route_table_association.cluster
+#                 ├─→ aws_subnet.cluster
+#                 └─→ aws_security_group.cluster
+# data.aws_availability_zones.available ─→ aws_subnet.cluster
+
 data "aws_availability_zones" "available" {
   state = "available"
 }
@@ -22,9 +30,9 @@ resource "aws_internet_gateway" "cluster" {
 
 resource "aws_subnet" "cluster" {
   vpc_id                  = aws_vpc.cluster.id
-  cidr_block               = var.vpc_cidr
-  availability_zone        = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch  = true
+  cidr_block              = var.vpc_cidr
+  availability_zone       = data.aws_availability_zones.available.names[0]
+  map_public_ip_on_launch = true
 
   tags = {
     Name = "${var.cluster_name}-subnet"

@@ -1,3 +1,6 @@
+# Depends on: nothing (leaf inputs)
+# Feeds: versions.tf (var.aws_region), network.tf, ec2.tf
+
 variable "aws_region" {
   description = "AWS region to deploy the cluster into"
   type        = string
